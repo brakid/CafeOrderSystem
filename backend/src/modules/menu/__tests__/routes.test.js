@@ -30,10 +30,6 @@ const menuRouter = (await import('../../modules/menu/routes.js')).default;
 
 const app = express();
 app.use(express.json());
-app.use((req, res, next) => {
-  req.io = { emit: jest.fn() };
-  next();
-});
 app.use('/api/menu', menuRouter);
 
 describe('Menu API', () => {

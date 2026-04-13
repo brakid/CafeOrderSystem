@@ -21,15 +21,6 @@ router.post('/', async (req, res) => {
     
     const order = await createOrder(req.body);
     
-    req.io.emit('order_new', {
-      order_id: order.id,
-      order_number: order.order_number,
-      channel: order.channel,
-      status: order.status,
-      total_amount: order.total_amount,
-      created_at: order.created_at
-    });
-
     res.status(201).json(order);
   } catch (error) {
     console.error('Create order error:', error);
@@ -84,12 +75,6 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    req.io.emit('order_updated', {
-      order_id: order.id,
-      status: order.status,
-      updated_at: order.updated_at
-    });
-
     res.json(order);
   } catch (error) {
     console.error('Update order status error:', error);
@@ -104,12 +89,6 @@ router.patch('/:id/pickup', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-
-    req.io.emit('order_updated', {
-      order_id: order.id,
-      status: order.status,
-      picked_up_at: order.picked_up_at
-    });
 
     res.json(order);
   } catch (error) {

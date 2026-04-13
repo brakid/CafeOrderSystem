@@ -1,36 +1,5 @@
 import { jest } from '@jest/globals';
 
-const mockSocket = {
-  emit: jest.fn(),
-  on: jest.fn(),
-  off: jest.fn(),
-  join: jest.fn(),
-  leave: jest.fn()
-};
-
-const mockIo = {
-  on: jest.fn((event, callback) => {
-    mockSocket.on[event] = callback;
-    return mockIo;
-  }),
-  emit: jest.fn(),
-  to: jest.fn(() => ({
-    emit: jest.fn()
-  })),
-  sockets: {
-    adapter: {
-      rooms: new Map()
-    }
-  }
-};
-
-jest.unstable_mockModule('../../shared/socket/index.js', () => ({
-  setupSocketHandlers: jest.fn(() => mockIo),
-  emitToKitchen: jest.fn(),
-  emitToPickup: jest.fn(),
-  emitToAll: jest.fn()
-}));
-
 describe('Kitchen Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();

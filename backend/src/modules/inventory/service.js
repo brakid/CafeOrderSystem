@@ -38,19 +38,13 @@ export async function getInventoryByCategory() {
   return result.rows;
 }
 
-export async function updateItemStock(itemId, stockCount, io) {
+export async function updateItemStock(itemId, stockCount) {
   const item = await updateStock(itemId, stockCount);
-  if (io) {
-    io.emit('stock_updated', { item_id: item.id, stock_count: item.stock_count });
-  }
   return item;
 }
 
-export async function adjustItemStock(itemId, adjustment, io) {
+export async function adjustItemStock(itemId, adjustment) {
   const item = await adjustStock(itemId, adjustment);
-  if (io) {
-    io.emit('stock_updated', { item_id: item.id, stock_count: item.stock_count });
-  }
   return item;
 }
 

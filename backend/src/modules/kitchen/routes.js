@@ -84,11 +84,6 @@ router.patch('/orders/:id/start', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    req.io.emit('order_updated', {
-      order_id: order.id,
-      status: order.status,
-      updated_at: order.updated_at
-    });
     res.json(order);
   } catch (error) {
     console.error('Start order error:', error);
@@ -111,11 +106,6 @@ router.patch('/orders/:id/complete', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    req.io.emit('order_updated', {
-      order_id: order.id,
-      status: order.status,
-      updated_at: order.updated_at
-    });
     res.json(order);
   } catch (error) {
     console.error('Complete order error:', error);

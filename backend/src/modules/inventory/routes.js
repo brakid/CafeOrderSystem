@@ -44,7 +44,7 @@ router.get('/by-category', async (req, res) => {
 router.patch('/items/:id', async (req, res) => {
   try {
     const { stock_count } = req.body;
-    const item = await updateItemStock(req.params.id, stock_count, req.io);
+    const item = await updateItemStock(req.params.id, stock_count);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
@@ -58,7 +58,7 @@ router.patch('/items/:id', async (req, res) => {
 router.patch('/items/:id/adjust', async (req, res) => {
   try {
     const { adjustment } = req.body;
-    const item = await adjustItemStock(req.params.id, adjustment, req.io);
+    const item = await adjustItemStock(req.params.id, adjustment);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
@@ -73,12 +73,6 @@ router.post('/bulk-update', async (req, res) => {
   try {
     const { updates } = req.body;
     const results = await bulkUpdateStock(updates);
-    
-    if (req.io) {
-      for (const item of results) {
-        req.io.emit('stock_updated', { item_id: item.id, stock_count: item.stock_count });
-      }
-    }
     
     res.json(results);
   } catch (error) {

@@ -32,7 +32,6 @@ router.post('/categories', async (req, res) => {
   try {
     const { name, sort_order } = req.body;
     const category = await createCategory(name, sort_order);
-    req.io.emit('menu_updated');
     res.status(201).json(category);
   } catch (error) {
     console.error('Create category error:', error);
@@ -46,7 +45,6 @@ router.put('/categories/:id', async (req, res) => {
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
-    req.io.emit('menu_updated');
     res.json(category);
   } catch (error) {
     console.error('Update category error:', error);
@@ -57,7 +55,6 @@ router.put('/categories/:id', async (req, res) => {
 router.delete('/categories/:id', async (req, res) => {
   try {
     await deleteCategory(req.params.id);
-    req.io.emit('menu_updated');
     res.status(204).send();
   } catch (error) {
     console.error('Delete category error:', error);
@@ -68,7 +65,6 @@ router.delete('/categories/:id', async (req, res) => {
 router.post('/items', async (req, res) => {
   try {
     const item = await createMenuItem(req.body);
-    req.io.emit('menu_updated');
     res.status(201).json(item);
   } catch (error) {
     console.error('Create item error:', error);
@@ -82,7 +78,6 @@ router.put('/items/:id', async (req, res) => {
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
-    req.io.emit('menu_updated');
     res.json(item);
   } catch (error) {
     console.error('Update item error:', error);
@@ -93,7 +88,6 @@ router.put('/items/:id', async (req, res) => {
 router.delete('/items/:id', async (req, res) => {
   try {
     await deleteMenuItem(req.params.id);
-    req.io.emit('menu_updated');
     res.status(204).send();
   } catch (error) {
     console.error('Delete item error:', error);
@@ -108,8 +102,6 @@ router.patch('/items/:id/availability', async (req, res) => {
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
-    req.io.emit('stock_updated', { item_id: item.id, stock_count: item.stock_count });
-    req.io.emit('menu_updated');
     res.json(item);
   } catch (error) {
     console.error('Toggle availability error:', error);
@@ -128,7 +120,6 @@ router.post('/items/:id/options', async (req, res) => {
       }
     }
     
-    req.io.emit('menu_updated');
     res.status(201).json(option);
   } catch (error) {
     console.error('Create option error:', error);
@@ -140,7 +131,6 @@ router.patch('/options/:id/default', async (req, res) => {
   try {
     const { choice_id } = req.body;
     await setDefaultChoice(req.params.id, choice_id);
-    req.io.emit('menu_updated');
     res.json({ success: true });
   } catch (error) {
     console.error('Set default choice error:', error);
@@ -154,7 +144,6 @@ router.patch('/choices/:id', async (req, res) => {
     if (!choice) {
       return res.status(404).json({ error: 'Choice not found' });
     }
-    req.io.emit('menu_updated');
     res.json(choice);
   } catch (error) {
     console.error('Update choice error:', error);
@@ -169,7 +158,6 @@ router.put('/options/:id', async (req, res) => {
     if (!option) {
       return res.status(404).json({ error: 'Option not found' });
     }
-    req.io.emit('menu_updated');
     res.json(option);
   } catch (error) {
     console.error('Update option error:', error);
@@ -180,7 +168,6 @@ router.put('/options/:id', async (req, res) => {
 router.delete('/options/:id', async (req, res) => {
   try {
     await deleteOption(req.params.id);
-    req.io.emit('menu_updated');
     res.status(204).send();
   } catch (error) {
     console.error('Delete option error:', error);

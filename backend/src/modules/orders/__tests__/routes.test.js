@@ -21,10 +21,6 @@ const ordersRouter = (await import('../../modules/orders/routes.js')).default;
 
 const app = express();
 app.use(express.json());
-app.use((req, res, next) => {
-  req.io = { emit: jest.fn() };
-  next();
-});
 app.use('/api/orders', ordersRouter);
 
 describe('Orders API', () => {
@@ -70,7 +66,7 @@ describe('Orders API', () => {
       expect(response.body.error).toBe('Menu item not found');
     });
 
-    it('should emit order_new event via socket', async () => {
+    it('should create order and return it', async () => {
       const mockOrder = {
         id: 'order-1',
         order_number: 1,
@@ -82,13 +78,14 @@ describe('Orders API', () => {
 
       mockCreateOrder.mockResolvedValue(mockOrder);
 
-      await request(app)
+      const response = await request(app)
         .post('/api/orders')
         .send({
           channel: 'web',
           items: [{ menu_item_id: 'item-1', quantity: 1 }]
         });
 
+      expect(response.status).toBe(201);
       expect(mockCreateOrder).toHaveBeenCalled();
     });
   });

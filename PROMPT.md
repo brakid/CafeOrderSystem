@@ -90,6 +90,8 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 - 2026-04-13: Kitchen orders loading fix, PostgreSQL type errors, loading states, customer notifications
 - 2026-04-14: Real-time polling replaced Socket.IO; pickup functionality added; PICKED UP workflow implemented; 41 tests passing
 - 2026-04-14: Socket.IO code completely removed from frontend and backend; Docker rebuilt
+- 2026-04-14: Backend tests fixed (import paths, ESM mocking); 30 passing; 2 skipped (ESM complexity)
+- 2026-04-14: Playwright test 'should remove order after marking PICKED UP' fixed to create full order flow; 42 tests (41 passing, 1 flaky)
 
 ## Bug Fixes & Debugging
 

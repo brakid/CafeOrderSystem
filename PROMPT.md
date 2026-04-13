@@ -79,6 +79,11 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 - Design allows for future payment gateway integration
 - Order workflow: Customer pays upfront (designed for), but payment validation not implemented
 
+**TypeScript Migration (TODO)**
+- Migrate frontend and backend to TypeScript
+- Rationale: Better type safety, improved developer experience, catch errors at compile time
+- Priority: Low (functionality works, can be done incrementally)
+
 ### Future Extraction Plan
 1. Year 1: Modular Monolith
 2. Year 2: Extract Kitchen Service

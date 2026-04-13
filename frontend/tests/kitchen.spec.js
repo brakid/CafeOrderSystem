@@ -416,42 +416,72 @@ test.describe('Pickup Display', () => {
   });
 
   test('should remove order after marking PICKED UP', async ({ page }) => {
+    const customerPage = await page.context().newPage();
+    try {
+      await customerPage.goto(`${BASE_URL}`);
+      await customerPage.waitForLoadState('networkidle');
+      await customerPage.waitForTimeout(1000);
+      
+      const addToCartBtn = customerPage.locator('button:has-text("Add to Cart")').first();
+      if (await addToCartBtn.isVisible()) {
+        await addToCartBtn.click();
+        await customerPage.waitForTimeout(500);
+        
+        const confirmBtn = customerPage.locator('button:has-text("Add to Cart")').last();
+        if (await confirmBtn.isVisible()) {
+          await confirmBtn.click();
+          await customerPage.waitForTimeout(500);
+        }
+        
+        const cartBtn = customerPage.locator('button:has-text("View Cart")');
+        if (await cartBtn.isVisible()) {
+          await cartBtn.click();
+          await customerPage.waitForTimeout(500);
+          
+          const placeOrderBtn = customerPage.getByRole('button', { name: 'Place Order' });
+          if (await placeOrderBtn.isVisible()) {
+            await placeOrderBtn.click();
+            await customerPage.waitForTimeout(1000);
+          }
+        }
+      }
+    } finally {
+      await customerPage.close();
+    }
+    
     const kitchenPage = await page.context().newPage();
     try {
       await kitchenPage.goto(`${BASE_URL}/kitchen`);
       await kitchenPage.waitForLoadState('networkidle');
-      await kitchenPage.waitForTimeout(1000);
+      await kitchenPage.waitForTimeout(2000);
       
       const startBtn = kitchenPage.getByRole('button', { name: 'START' }).first();
-      if (await startBtn.isVisible()) {
-        await startBtn.click();
-        await kitchenPage.waitForTimeout(1000);
-      }
+      await startBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await startBtn.click();
+      await kitchenPage.waitForTimeout(2000);
       
       const readyBtn = kitchenPage.getByRole('button', { name: 'READY' }).first();
-      if (await readyBtn.isVisible()) {
-        await readyBtn.click();
-        await kitchenPage.waitForTimeout(1000);
-      }
+      await readyBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await readyBtn.click();
+      await kitchenPage.waitForTimeout(2000);
     } finally {
       await kitchenPage.close();
     }
     
-    const pickupCountBefore = await page.locator('button:has-text("PICKED UP")').count();
-    
-    if (pickupCountBefore === 0) {
-      test.skip();
-      return;
-    }
-    
     await page.goto(`${BASE_URL}/pickup`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
     
-    await page.locator('button:has-text("PICKED UP")').first().click({ force: true });
-    await page.waitForTimeout(2000);
+    const pickupBtn = page.locator('button').filter({ hasText: 'PICKED UP' }).first();
+    await pickupBtn.waitFor({ state: 'visible', timeout: 10000 });
     
-    const pickupCountAfter = await page.locator('button:has-text("PICKED UP")').count();
-    expect(pickupCountAfter).toBeLessThan(pickupCountBefore);
+    const orderCard = pickupBtn.locator('..');
+    const orderNumber = await orderCard.locator('span').first().textContent();
+    
+    await pickupBtn.click({ force: true, position: { x: 10, y: 10 } });
+    await page.waitForTimeout(3000);
+    
+    const stillVisible = await page.locator('button').filter({ hasText: orderNumber }).count();
+    expect(stillVisible).toBe(0);
   });
 });

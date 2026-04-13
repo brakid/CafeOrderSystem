@@ -56,7 +56,7 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 | Payment | TODO: Payment integration not yet implemented |
 | Order States | Pending → Preparing → Ready → Picked Up |
 | Kitchen Display | FIFO queue with toggle (order view / item-grouped) |
-| Real-time | Polling (1s kitchen/pickup, 2s customer status) - Socket.IO removed for simplicity |
+| Real-time | Polling only (1s kitchen/pickup, 2s customer status) - Socket.IO code completely removed |
 | Availability | Stock count with atomic decrements |
 | Menu Model | Categories → Items → Options/Extras |
 | Modifications | None after placement |
@@ -66,12 +66,13 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 
 ### Design Notes
 
-**Real-time Communication (Socket.IO)**
-- Initially designed with WebSocket for instant updates
-- Removed in favor of polling for simplicity
+**Real-time Communication**
+- No WebSocket infrastructure - polling only
 - Rationale: Small cafes have low order volume; <1s polling latency is acceptable
 - Benefits: No connection management, no server infrastructure for websockets, simpler debugging
-- Future: Can re-add WebSocket support if real-time needs grow (e.g., multi-station coordination)
+- Kitchen/Pickup views: poll every 1 second
+- Customer status: poll every 2 seconds
+- Future: Can add WebSocket support if real-time needs grow (e.g., multi-station coordination)
 
 **Payment Integration (TODO)**
 - Payment processing not yet integrated
@@ -88,6 +89,7 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 - 2026-04-13: Bug fixes and debugging session
 - 2026-04-13: Kitchen orders loading fix, PostgreSQL type errors, loading states, customer notifications
 - 2026-04-14: Real-time polling replaced Socket.IO; pickup functionality added; PICKED UP workflow implemented; 41 tests passing
+- 2026-04-14: Socket.IO code completely removed from frontend and backend; Docker rebuilt
 
 ## Bug Fixes & Debugging
 
@@ -211,11 +213,11 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 **Fix**: Added `onClick={() => refetch()}` to order cards in both KitchenDisplay and PickupDisplay
 
 ## Environment Notes
-- Frontend runs on port 8081 (Vite dev server)
+- Frontend runs on port 8080 (Vite dev server)
 - Backend runs on port 3000 (Node.js)
 - Database: PostgreSQL on port 5432
 - Vite proxy forwards `/api` requests to backend
-- Real-time updates via polling (no Socket.IO)
+- Real-time updates via polling only (no WebSocket/Socket.IO)
 
 ## Test Coverage
 - 41 Playwright tests covering Admin, Customer, Kitchen, and Pickup views

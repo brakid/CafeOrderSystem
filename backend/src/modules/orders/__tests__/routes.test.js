@@ -7,7 +7,7 @@ const mockGetOrderById = jest.fn();
 const mockGetActiveOrders = jest.fn();
 const mockUpdateOrderStatus = jest.fn();
 
-jest.unstable_mockModule('../../modules/orders/service.js', () => ({
+jest.unstable_mockModule('../service.js', () => ({
   createOrder: mockCreateOrder,
   getOrderById: mockGetOrderById,
   getOrderWithItems: jest.fn(),
@@ -17,7 +17,7 @@ jest.unstable_mockModule('../../modules/orders/service.js', () => ({
   markOrderPickedUp: jest.fn()
 }));
 
-const ordersRouter = (await import('../../modules/orders/routes.js')).default;
+const ordersRouter = (await import('../routes.js')).default;
 
 const app = express();
 app.use(express.json());

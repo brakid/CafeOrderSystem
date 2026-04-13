@@ -13,7 +13,7 @@ const mockToggleAvailability = jest.fn();
 const mockCreateOption = jest.fn();
 const mockCreateOptionChoice = jest.fn();
 
-jest.unstable_mockModule('../../modules/menu/service.js', () => ({
+jest.unstable_mockModule('../service.js', () => ({
   getFullMenu: mockGetFullMenu,
   createCategory: mockCreateCategory,
   updateCategory: mockUpdateCategory,
@@ -23,10 +23,15 @@ jest.unstable_mockModule('../../modules/menu/service.js', () => ({
   deleteMenuItem: mockDeleteMenuItem,
   toggleAvailability: mockToggleAvailability,
   createOption: mockCreateOption,
-  createOptionChoice: mockCreateOptionChoice
+  createOptionChoice: mockCreateOptionChoice,
+  updateOption: jest.fn(),
+  deleteOption: jest.fn(),
+  deleteOptionChoice: jest.fn(),
+  setDefaultChoice: jest.fn(),
+  updateChoice: jest.fn()
 }));
 
-const menuRouter = (await import('../../modules/menu/routes.js')).default;
+const menuRouter = (await import('../routes.js')).default;
 
 const app = express();
 app.use(express.json());

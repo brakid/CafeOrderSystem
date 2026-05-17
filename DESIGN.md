@@ -552,22 +552,45 @@ docker-compose down
 
 ---
 
-## 11. Future Considerations
+## 11. Missing Use Cases (Not Yet Implemented)
 
-### Short-term (v1.1)
-- Receipt printing
-- Order modifications (before preparation)
-- Multiple payment method support
+These are gaps in the current system, prioritized by impact. Unlike §7.4 (security gaps), these are feature omissions rather than vulnerabilities.
 
-### Medium-term (v2.0)
-- Multi-store support
-- Staff management (individual logins)
-- Loyalty/rewards system
+### P0 — Core operational gaps
 
-### Long-term (v3.0)
-- Extractable microservices
-- Mobile apps (iOS/Android)
-- Delivery integration
+| Use Case | Rationale | Scope |
+|----------|-----------|-------|
+| **Order cancellation** | Customers or staff cannot cancel an order once placed. Must be restricted to `pending` status only (irreversible once kitchen starts preparing). On cancel: restore stock, mark order as `cancelled` (new status). | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/cancel` endpoint, new `cancelled` status in DB CHECK constraint |
+| **Order modification** | No way to add/remove items or change options after placement. Must be restricted to `pending` status before kitchen work begins. On modify: recalculate total, re-validate stock. | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/items` endpoint |
+| **Payment integration** | No payment processing exists. The system assumes payment is handled externally (POS handshake), but there is no hook, no payment status tracking, and no way to mark an order as paid. At minimum: add a `payment_status` field (`unpaid`, `paid`, `refunded`) and a webhook endpoint for POS notification. | `orders/service.js` — new `payment_status` column on `orders` table, `POST /api/orders/webhook/payment` endpoint |
+
+### P1 — Business value (revenue / retention)
+
+| Use Case | Rationale | Scope |
+|----------|-----------|-------|
+| **Loyalty / rewards / coupons** | No punch cards, promo codes, or discount mechanics. Returning customers have no incentive to use the webapp over walking up to the counter. | New `promotions` module — discount rules, promo code validation, loyalty points ledger |
+| **Customer ratings & feedback** | No post-order review or item rating. Lost signal on product quality and popular items beyond raw sales count. | New `feedback` module — `POST /api/feedback` endpoint, item rating field |
+| **Order-ready notifications (email/SMS)** | Customers must poll the order status page; no proactive notification when order is ready. | Integration with email provider or SMS gateway on `ready` status transition |
+
+### P2 — Operational efficiency
+
+| Use Case | Rationale | Scope |
+|----------|-----------|-------|
+| **Refund / void flow** | No process for voiding a paid order and restoring stock. Currently the only option is manually editing stock after a deletion. | Extend cancellation with refund logic, `refunded` payment status |
+| **Employee authentication & role-based access** | No staff logins, no shift management, no permission scoping. Everyone is anonymous — kitchen, admin, and counter share the same unlimited access. | New `auth` module — PIN-based station login (as originally designed), JWT session, role middleware (`station: kitchen | admin | counter`) |
+| **Audit log** | No record of who changed menu items, adjusted stock, or modified orders. Cannot trace accidental deletions or investigate incidents. | New `audit` table — log all mutations with `actor`, `action`, `target_type`, `target_id`, `diff`, `timestamp` |
+| **Receipt / order slip printing** | No integration with thermal printers for kitchen order slips or customer receipts. Kitchen staff must read from a screen. | New `printing` module — print queue, template rendering, ESC/POS or IPP integration |
+
+### P3 — Growth / scale
+
+| Use Case | Rationale | Scope |
+|----------|-----------|-------|
+| **Tax configuration** | No per-item or per-order tax. Required once the system handles payment directly. | New `tax` field on `menu_items` and/or `orders` |
+| **Time-based / shift menus** | No breakfast/lunch/dinner menu switching. Items and categories cannot be scheduled. | Add `available_from`/`available_until` time fields to `categories` and `menu_items` |
+| **Table service / QR ordering** | No table assignment or dine-in flow. Each table would need a unique QR code linking to a session-scoped order. | New `tables` table, QR code generation, table-scoped order creation |
+| **Delivery / scheduled pickup** | No time-slot booking, delivery address collection, or delivery fee calculation. | New `delivery` module — address fields, time-slot scheduling, delivery fee rules |
+| **Supplier & recipe management** | No ingredient tracking, purchase orders, or automated reorder triggers. Stock adjustments are purely manual. | New `suppliers` and `recipes` modules — ingredient mappings, reorder thresholds, PO generation |
+| **Multi-location support** | Entire system is a single store. No tenant isolation or cross-location reporting. | Add `store_id` column to all entities, introduce tenant middleware |
 
 ---
 

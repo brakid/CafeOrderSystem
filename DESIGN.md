@@ -382,13 +382,59 @@ OrderItem M───M ItemOptionChoice (through OrderItemOption)
 
 ### 7.2 Authentication
 - **Customer app**: No auth (internal network is security)
-- **Kitchen/Admin**: PIN-based station login
-- Stations: kitchen_1, kitchen_2, admin, counter
+- **Kitchen/Admin**: PIN-based station login — **NOT IMPLEMENTED** (see §7.4)
+- Stations: kitchen_1, kitchen_2, admin, counter — **NOT IMPLEMENTED**
 
 ### 7.3 Input Validation
 - All inputs sanitized
 - Stock counts validated (non-negative integers)
 - Prices validated (non-negative decimals)
+- **Price manipulation prevention**: All pricing is computed server-side from the database:
+  - `unit_price`: Read from `menu_items.price` + verified option `price_modifier` values — client-supplied `unit_price` is always ignored
+  - `total_amount`: Sum of `unit_price * quantity` for all items — client-supplied `total_amount` is always ignored
+  - Route handler (`orders/routes.js`) uses a whitelist-based extractor: only `menu_item_id`, `quantity`, `option_ids`, and `special_instructions` are forwarded from the request body; `unit_price`, `total_amount`, and any unknown fields are stripped
+  - Option choice IDs are validated against the ordered menu item to prevent cross-item option injection
+  - Quantity must be a positive integer (`> 0`), rejecting negative and zero values that could otherwise reduce totals or inflate stock
+
+### 7.4 Known Security Gaps
+
+The following issues are **documented but not yet fixed**. They are ordered by severity.
+
+| # | Issue | Severity | Status | Details |
+|---|-------|----------|--------|---------|
+| 1 | **No authentication on any endpoint** | Critical | Unresolved | All 30 API endpoints are fully public. Kitchen, admin, pickup, inventory, and analytics have no access control. Anyone with network access can read/modify orders, menus, inventory, and analytics. |
+| 2 | **Unrestricted CORS** | High | Unresolved | `app.use(cors())` is called with no options, allowing any origin, method, and header. Should be restricted to known frontend origins in production. |
+| 3 | **No rate limiting** | High | Unresolved | No rate-limiting middleware. Attackers can spam `POST /api/orders` to exhaust stock, hammer inventory adjust endpoints, or overload analytics aggregation queries. |
+| 4 | **No CSRF protection** | High | Unresolved | No CSRF tokens on any state-changing endpoint (`POST`, `PATCH`, `DELETE`). A malicious site could trigger order creation, status changes, or menu deletion via a user's browser. |
+| 5 | **IDOR — no ownership checks** | High | Unresolved | Any client can read or modify any order by UUID. No session, customer identity, or ownership check exists. Kitchen `start`/`complete` validate UUID format but not authorization. |
+| 6 | **Hardcoded database credentials** | High | Unresolved | Default connection string `postgresql://cafe:cafe_dev_password@localhost:5432/cafe` is in source code (`shared/db/index.js`). Also referenced in docker-compose.yml. |
+| 7 | **No HTTPS** | Medium | Unresolved | Plaintext HTTP only. Neither the dev Vite proxy nor the production Nginx config terminates TLS. All traffic — including admin actions — is sent in cleartext. |
+| 8 | **No schema-based input validation** | Medium | Unresolved | No validation library (Joi, Zod, Yup, express-validator). Request bodies are parsed raw. SQL injection is prevented by parameterized queries, but there is no type/format enforcement on any field. |
+| 9 | **XSS in stored text fields** | Medium | Unresolved | `name`, `description`, `image_url`, `special_instructions`, and `customer_name` are stored from user input and rendered in React without sanitization. An attacker who can create menu items (no auth required) can inject arbitrary JS. |
+| 10 | **Pickup spoofing** | Medium | Unresolved | `PATCH /api/orders/:id/pickup` has no auth. Anyone can mark any order as picked up. |
+| 11 | **Category/item deletion — no confirmation** | Medium | Unresolved | `DELETE` on categories and items cascade-deletes without confirmation or soft-delete. A single request can wipe the entire menu tree. |
+| 12 | **Analytics DoS** | Low | Unresolved | Aggregation queries accept unrestricted `start_date`/`end_date` ranges. Large date spans on a full table could CPU-exhaust the database. |
+| 13 | **IP filtering not implemented** | Low | Unresolved | `ALLOWED_IP_RANGE` env var and `shared/middleware/` are referenced in the design but do not exist in code. The app is accessible from any network. |
+| 14 | **No audit log** | Low | Unresolved | No record of who made what changes. Menu edits, stock adjustments, and order status transitions cannot be traced. |
+
+### 7.5 Mitigation Priority
+
+1. **Immediate** (exploitable remotely, no prerequisites):
+   - Implement authentication + role-based access control (JWT or PIN-based)
+   - Restrict CORS to known frontend origins
+   - Add rate limiting (`express-rate-limit`)
+
+2. **Short-term**:
+   - Add CSRF tokens on state-changing endpoints
+   - Add ownership/station validation for order mutations
+   - Move database credentials to environment variables and rotate
+   - Add input schema validation library (Zod or Joi)
+
+3. **Medium-term**:
+   - Serve HTTPS (terminate TLS at Nginx reverse proxy)
+   - Sanitize stored text fields (DOMPurify or escape on render)
+   - Add soft-delete with confirmation for menu items/categories
+   - Implement audit logging for all mutations
 
 ---
 

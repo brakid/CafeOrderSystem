@@ -88,6 +88,81 @@ describe('Orders API', () => {
       expect(response.status).toBe(201);
       expect(mockCreateOrder).toHaveBeenCalled();
     });
+
+    it('should ignore client-supplied unit_price and use server-calculated price', async () => {
+      const mockOrder = {
+        id: 'order-1',
+        order_number: 1,
+        channel: 'web',
+        status: 'pending',
+        total_amount: 3.50,
+        created_at: new Date()
+      };
+
+      mockCreateOrder.mockResolvedValue(mockOrder);
+
+      await request(app)
+        .post('/api/orders')
+        .send({
+          channel: 'web',
+          items: [{
+            menu_item_id: 'item-1',
+            quantity: 1,
+            unit_price: 0.01,
+            option_ids: []
+          }],
+          total_amount: 0.01
+        });
+
+      // The service must NOT receive client-supplied price fields
+      const calledWith = mockCreateOrder.mock.calls[0][0];
+      expect(calledWith.items[0].unit_price).toBeUndefined();
+      expect(calledWith.items[0].total_amount).toBeUndefined();
+      expect(calledWith.total_amount).toBeUndefined();
+    });
+
+    it('should ignore client-supplied total_amount', async () => {
+      mockCreateOrder.mockResolvedValue({ id: 'order-1' });
+
+      await request(app)
+        .post('/api/orders')
+        .send({
+          channel: 'web',
+          items: [{ menu_item_id: 'item-1', quantity: 1 }],
+          total_amount: 0.01
+        });
+
+      const calledWith = mockCreateOrder.mock.calls[0][0];
+      expect(calledWith.total_amount).toBeUndefined();
+    });
+
+    it('should reject negative quantity orders', async () => {
+      mockCreateOrder.mockRejectedValue(new Error('Item quantity must be a positive integer'));
+
+      const response = await request(app)
+        .post('/api/orders')
+        .send({
+          channel: 'web',
+          items: [{ menu_item_id: 'item-1', quantity: -1 }]
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('positive integer');
+    });
+
+    it('should reject zero quantity orders', async () => {
+      mockCreateOrder.mockRejectedValue(new Error('Item quantity must be a positive integer'));
+
+      const response = await request(app)
+        .post('/api/orders')
+        .send({
+          channel: 'web',
+          items: [{ menu_item_id: 'item-1', quantity: 0 }]
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('positive integer');
+    });
   });
 
   describe('GET /api/orders/active', () => {

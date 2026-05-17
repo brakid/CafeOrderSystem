@@ -13,13 +13,25 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { items, channel } = req.body;
+    const { items, channel, customer_name } = req.body;
     
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Order must contain at least one item' });
     }
     
-    const order = await createOrder(req.body);
+    // Only pass whitelisted fields — never trust client-supplied pricing
+    const sanitizedItems = items.map(item => ({
+      menu_item_id: item.menu_item_id,
+      quantity: item.quantity,
+      option_ids: item.option_ids,
+      special_instructions: item.special_instructions
+    }));
+    
+    const order = await createOrder({
+      items: sanitizedItems,
+      channel,
+      customer_name
+    });
     
     res.status(201).json(order);
   } catch (error) {

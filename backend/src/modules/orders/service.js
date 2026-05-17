@@ -22,6 +22,10 @@ export async function createOrder(orderData) {
     const validatedItems = [];
 
     for (const item of orderData.items) {
+      if (!item.quantity || item.quantity <= 0 || !Number.isInteger(item.quantity)) {
+        throw new Error('Item quantity must be a positive integer');
+      }
+
       const itemResult = await client.query(
         `SELECT id, name, price, stock_count, is_available 
          FROM menu_items WHERE id = $1`,
@@ -42,10 +46,22 @@ export async function createOrder(orderData) {
         throw new Error(`Not enough stock for ${menuItem.name}. Available: ${menuItem.stock_count}`);
       }
 
-      // Calculate price with options
+      // Calculate price from database — never trust client-supplied pricing
       let itemPrice = parseFloat(menuItem.price);
       
       if (item.option_ids && item.option_ids.length > 0) {
+        // Verify all option choices belong to this menu item
+        const choiceValidation = await client.query(
+          `SELECT COUNT(*) as count FROM item_option_choices ioc
+           JOIN item_options io ON ioc.option_id = io.id
+           WHERE ioc.id = ANY($1) AND io.menu_item_id = $2`,
+          [item.option_ids, item.menu_item_id]
+        );
+        
+        if (parseInt(choiceValidation.rows[0].count) !== item.option_ids.length) {
+          throw new Error('Invalid option choices for this menu item');
+        }
+
         const optionsResult = await client.query(
           `SELECT SUM(price_modifier) as total_modifier 
            FROM item_option_choices WHERE id = ANY($1)`,
@@ -56,8 +72,12 @@ export async function createOrder(orderData) {
 
       totalAmount += itemPrice * item.quantity;
       validatedItems.push({
-        ...item,
-        unit_price: itemPrice
+        menu_item_id: item.menu_item_id,
+        quantity: item.quantity,
+        option_ids: item.option_ids,
+        special_instructions: item.special_instructions,
+        unit_price: itemPrice,
+        has_limited_stock: menuItem.stock_count !== null
       });
     }
 
@@ -95,8 +115,8 @@ export async function createOrder(orderData) {
         }
       }
 
-      // Decrement stock
-      if (item.stock_count !== null) {
+      // Decrement stock (only for limited-stock items)
+      if (item.has_limited_stock) {
         await client.query(
           `UPDATE menu_items 
            SET stock_count = stock_count - $1, 

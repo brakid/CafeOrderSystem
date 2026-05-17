@@ -1,6 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMenu, useOrders } from '../hooks/useApi';
 
+const EDIT_TOKEN_KEY = 'cafe_order_tokens';
+
+function getStoredTokens() {
+  try {
+    return JSON.parse(localStorage.getItem(EDIT_TOKEN_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function storeEditToken(orderId, token) {
+  const tokens = getStoredTokens();
+  tokens[orderId] = token;
+  localStorage.setItem(EDIT_TOKEN_KEY, JSON.stringify(tokens));
+}
+
+function removeEditToken(orderId) {
+  const tokens = getStoredTokens();
+  delete tokens[orderId];
+  localStorage.setItem(EDIT_TOKEN_KEY, JSON.stringify(tokens));
+}
+
+function getEditToken(orderId) {
+  return getStoredTokens()[orderId] || null;
+}
+
 const styles = {
   container: { minHeight: '100vh', background: '#f5f5f5' },
   header: { background: '#2c3e50', color: 'white', padding: '1rem', textAlign: 'center' },
@@ -20,6 +44,7 @@ const styles = {
   itemDesc: { color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' },
   itemPrice: { fontWeight: '600', color: '#27ae60' },
   addBtn: { width: '100%', padding: '0.75rem', background: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem' },
+  dangerBtn: { width: '100%', padding: '0.75rem', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', marginTop: '0.5rem' },
   outOfStock: { background: '#e0e0e0', color: '#999', cursor: 'not-allowed' },
   cart: { position: 'fixed', bottom: 0, left: 0, right: 0, background: 'white', padding: '1rem', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' },
   cartBtn: { width: '100%', padding: '1rem', background: '#2c3e50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem' },
@@ -42,7 +67,8 @@ const styles = {
   orderSuccess: { textAlign: 'center', padding: '2rem' },
   orderNumber: { fontSize: '3rem', fontWeight: 'bold', color: '#2c3e50', margin: '1rem 0' },
   waitingMsg: { color: '#666', marginTop: '1rem' },
-  readyBanner: { background: '#27ae60', color: 'white', padding: '1rem', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem' }
+  readyBanner: { background: '#27ae60', color: 'white', padding: '1rem', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem' },
+  cancelledBanner: { background: '#e74c3c', color: 'white', padding: '1rem', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem' }
 };
 
 export default function CustomerApp() {
@@ -57,6 +83,7 @@ export default function CustomerApp() {
   const [orderReady, setOrderReady] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [myOrderStatus, setMyOrderStatus] = useState(null);
+  const [orderCancelled, setOrderCancelled] = useState(false);
 
   useEffect(() => {
     if (menu.length > 0 && !activeCategory) {
@@ -65,7 +92,7 @@ export default function CustomerApp() {
   }, [menu, activeCategory]);
 
   useEffect(() => {
-    if (!myOrderId || orderReady) return;
+    if (!myOrderId || orderReady || orderCancelled) return;
     
     const checkOrderStatus = async () => {
       try {
@@ -76,6 +103,9 @@ export default function CustomerApp() {
           if (order.status === 'ready') {
             setOrderReady(true);
           }
+          if (order.status === 'cancelled') {
+            setOrderCancelled(true);
+          }
         }
       } catch (e) {
         console.error('Failed to check order status');
@@ -85,7 +115,7 @@ export default function CustomerApp() {
     checkOrderStatus();
     const interval = setInterval(checkOrderStatus, 2000);
     return () => clearInterval(interval);
-  }, [myOrderId, orderReady]);
+  }, [myOrderId, orderReady, orderCancelled]);
 
   const activeMenuItems = menu.find(c => c.id === activeCategory)?.items || [];
 
@@ -141,9 +171,11 @@ export default function CustomerApp() {
       };
       
       const result = await createOrder(orderData);
+      storeEditToken(result.id, result.edit_token);
       setOrderResult(result);
       setMyOrderId(result.id);
       setOrderReady(false);
+      setOrderCancelled(false);
       setCart([]);
       setShowCart(false);
     } catch (err) {
@@ -151,10 +183,38 @@ export default function CustomerApp() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!confirm('Cancel this order?')) return;
+    try {
+      const token = getEditToken(myOrderId);
+      const res = await fetch(`/api/orders/${myOrderId}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error);
+      }
+      const order = await res.json();
+      setOrderCancelled(true);
+      setMyOrderStatus(order.status);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleModifyOrder = () => {
+    setOrderResult(null);
+    setMyOrderId(null);
+    setOrderReady(false);
+    setOrderCancelled(false);
+  };
+
   const cartTotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   if (orderResult) {
+    const isPending = !orderReady && !orderCancelled;
     return (
       <div style={styles.container}>
         {orderReady && (
@@ -162,17 +222,32 @@ export default function CustomerApp() {
             Your Order #{orderResult.order_number} is Ready for Pickup!
           </div>
         )}
+        {orderCancelled && (
+          <div style={styles.cancelledBanner}>
+            Order #{orderResult.order_number} has been Cancelled
+          </div>
+        )}
         <div style={styles.header}>
           <h1>Cafe Ordering</h1>
         </div>
         <div style={styles.orderSuccess}>
-          <h2>{orderReady ? 'Order Ready!' : 'Order Placed!'}</h2>
+          <h2>{orderReady ? 'Order Ready!' : orderCancelled ? 'Order Cancelled' : 'Order Placed!'}</h2>
           <div style={styles.orderNumber}>#{orderResult.order_number}</div>
           <p>Total: ${orderResult.total_amount.toFixed(2)}</p>
-          {!orderReady && <p style={styles.waitingMsg}>We'll notify you when your order is ready for pickup.</p>}
+          {isPending && <p style={styles.waitingMsg}>We'll notify you when your order is ready for pickup.</p>}
+          {isPending && (
+            <>
+              <button style={{ ...styles.addBtn, marginTop: '1rem'}} onClick={handleModifyOrder}>
+                Modify Order
+              </button>
+              <button style={styles.dangerBtn} onClick={handleCancelOrder}>
+                Cancel Order
+              </button>
+            </>
+          )}
           <button 
-            style={{ ...styles.addBtn, marginTop: '1rem'}}
-            onClick={() => { setOrderResult(null); setMyOrderId(null); setOrderReady(false); }}
+            style={{ ...styles.addBtn, marginTop: isPending ? '0.5rem' : '1rem'}}
+            onClick={() => { setOrderResult(null); setMyOrderId(null); setOrderReady(false); setOrderCancelled(false); }}
           >
             Place Another Order
           </button>

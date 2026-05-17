@@ -14,7 +14,9 @@ jest.unstable_mockModule('../service.js', () => ({
   getActiveOrders: mockGetActiveOrders,
   getReadyOrders: jest.fn(),
   updateOrderStatus: mockUpdateOrderStatus,
-  markOrderPickedUp: jest.fn()
+  markOrderPickedUp: jest.fn(),
+  cancelOrder: jest.fn(),
+  modifyOrderItems: jest.fn()
 }));
 
 const ordersRouter = (await import('../routes.js')).default;

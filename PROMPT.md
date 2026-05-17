@@ -54,12 +54,12 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 |----------|----------|
 | Architecture | Modular Monolith (single deploy, modular code, extractable later) |
 | Payment | TODO: Payment integration not yet implemented |
-| Order States | Pending → Preparing → Ready → Picked Up |
+| Order States | Pending → Preparing → Ready → Picked Up, + Cancelled |
 | Kitchen Display | FIFO queue with toggle (order view / item-grouped) |
 | Real-time | Polling only (1s kitchen/pickup, 2s customer status) - Socket.IO code completely removed |
 | Availability | Stock count with atomic decrements |
 | Menu Model | Categories → Items → Options/Extras |
-| Modifications | None after placement |
+| Modifications | Cancel/modify allowed while pending (edit_token ownership, PATCH /:id/cancel and /:id/items) |
 | Auth | Shared station accounts |
 | Network | Internal IP restriction |
 | Fault Tolerance | Nice to have (not critical) |
@@ -97,6 +97,9 @@ Building a cafe ordering system to help small shop owners combat staff shortages
 - 2026-04-14: Socket.IO code completely removed from frontend and backend; Docker rebuilt
 - 2026-04-14: Backend tests fixed (import paths, ESM mocking); 30 passing; 2 skipped (ESM complexity)
 - 2026-04-14: Playwright test 'should remove order after marking PICKED UP' fixed to create full order flow; 42 tests (41 passing, 1 flaky)
+- 2026-05-17: Price manipulation fix — server-side pricing, whitelist-based body sanitization, quantity > 0 validation, cross-item option validation
+- 2026-05-17: Missing use cases documented in DESIGN.md §11 with priority tiers (P0–P3)
+- 2026-05-17: P0 features implemented — order cancellation + modification via edit_token ownership model
 
 ## Bug Fixes & Debugging
 

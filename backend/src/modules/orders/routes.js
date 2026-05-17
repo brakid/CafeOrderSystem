@@ -6,7 +6,9 @@ import {
   getActiveOrders,
   getReadyOrders,
   updateOrderStatus,
-  markOrderPickedUp
+  markOrderPickedUp,
+  cancelOrder,
+  modifyOrderItems
 } from './service.js';
 
 const router = express.Router();
@@ -75,6 +77,52 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Get order error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/cancel', async (req, res) => {
+  try {
+    const editToken = req.headers['x-edit-token'];
+    if (!editToken) {
+      return res.status(401).json({ error: 'Edit token required' });
+    }
+
+    const order = await cancelOrder(req.params.id, editToken);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/items', async (req, res) => {
+  try {
+    const editToken = req.headers['x-edit-token'];
+    if (!editToken) {
+      return res.status(401).json({ error: 'Edit token required' });
+    }
+
+    const { items } = req.body;
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'Order must contain at least one item' });
+    }
+
+    const sanitizedItems = items.map(item => ({
+      menu_item_id: item.menu_item_id,
+      quantity: item.quantity,
+      option_ids: item.option_ids,
+      special_instructions: item.special_instructions
+    }));
+
+    const order = await modifyOrderItems(req.params.id, editToken, sanitizedItems);
+    res.json(order);
+  } catch (error) {
+    console.error('Modify order error:', error);
+    res.status(400).json({ error: error.message });
   }
 });
 

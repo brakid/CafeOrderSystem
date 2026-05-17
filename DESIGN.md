@@ -140,9 +140,10 @@ backend/
 | id | UUID | Primary key |
 | order_number | INTEGER | Human-readable number (resets daily) |
 | channel | ENUM | 'web' or 'counter' |
-| status | ENUM | 'pending', 'preparing', 'ready', 'picked_up' |
+| status | ENUM | 'pending', 'preparing', 'ready', 'picked_up', 'cancelled' |
 | customer_name | VARCHAR(100) | Optional customer name |
 | total_amount | DECIMAL(10,2) | Calculated total |
+| edit_token | VARCHAR(64) | Server-generated random token for customer edit ownership |
 | created_at | TIMESTAMP | Order time |
 | updated_at | TIMESTAMP | Last status change |
 | picked_up_at | TIMESTAMP | Completion time |
@@ -351,6 +352,13 @@ OrderItem M───M ItemOptionChoice (through OrderItemOption)
 ## 6. Order Lifecycle
 
 ```
+                   ┌────────────┐
+                   │ CANCELLED  │
+                   └────────────┘
+                        ▲
+                        │ (customer only, via
+                        │  edit_token, while pending)
+                        │
 ┌──────────┐     ┌────────────┐     ┌────────┐     ┌──────────┐
 │ PENDING  │────▶│ PREPARING  │────▶│ READY  │────▶│PICKED_UP │
 └──────────┘     └────────────┘     └────────┘     └──────────┘
@@ -365,11 +373,13 @@ OrderItem M───M ItemOptionChoice (through OrderItemOption)
 1. **PENDING → PREPARING**: Kitchen staff starts working
 2. **PREPARING → READY**: All items prepared, customer notified
 3. **READY → PICKED_UP**: Customer collects order
+4. **PENDING → CANCELLED**: Customer cancels via edit_token (restores stock)
 
 ### Stock Management
 - Order creation: Atomic decrement of stock_count
 - If stock = 0 after decrement: Item becomes unavailable
-- Order cancel (future): Restore stock (if implemented)
+- Order cancel: Restores stock for all items, re-enables availability
+- Order modification: Restores old stock, decrements new stock (atomic swap)
 
 ---
 
@@ -434,7 +444,20 @@ The following issues are **documented but not yet fixed**. They are ordered by s
    - Serve HTTPS (terminate TLS at Nginx reverse proxy)
    - Sanitize stored text fields (DOMPurify or escape on render)
    - Add soft-delete with confirmation for menu items/categories
-   - Implement audit logging for all mutations
+    - Implement audit logging for all mutations
+
+### 7.6 Order Ownership (Edit Token)
+
+Customer orders placed via the webapp are tied to the device using a server-generated **edit_token**:
+
+- On `POST /api/orders`, the backend generates a cryptographically random 48-char hex token (`crypto.randomBytes(24)`)
+- The token is stored in the `edit_token` column of the `orders` table and returned in the response body
+- The frontend persists it in `localStorage` (keyed by order ID) — no account, session, or device fingerprint needed
+- `PATCH /:id/cancel` and `PATCH /:id/items` require the token via `X-Edit-Token` header
+- Validation: token must match exactly, order must be in `pending` status
+- If the user clears `localStorage`, they lose the ability to self-serve cancel/modify and must approach the counter
+
+This is **not authentication** — it is lightweight **ownership proof**. The threat model is casual self-service, not a determined attacker. Full auth (PIN-based station login) is a separate concern documented in §7.2.
 
 ---
 
@@ -558,11 +581,11 @@ These are gaps in the current system, prioritized by impact. Unlike §7.4 (secur
 
 ### P0 — Core operational gaps
 
-| Use Case | Rationale | Scope |
-|----------|-----------|-------|
-| **Order cancellation** | Customers or staff cannot cancel an order once placed. Must be restricted to `pending` status only (irreversible once kitchen starts preparing). On cancel: restore stock, mark order as `cancelled` (new status). | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/cancel` endpoint, new `cancelled` status in DB CHECK constraint |
-| **Order modification** | No way to add/remove items or change options after placement. Must be restricted to `pending` status before kitchen work begins. On modify: recalculate total, re-validate stock. | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/items` endpoint |
-| **Payment integration** | No payment processing exists. The system assumes payment is handled externally (POS handshake), but there is no hook, no payment status tracking, and no way to mark an order as paid. At minimum: add a `payment_status` field (`unpaid`, `paid`, `refunded`) and a webhook endpoint for POS notification. | `orders/service.js` — new `payment_status` column on `orders` table, `POST /api/orders/webhook/payment` endpoint |
+| Use Case | Rationale | Scope | Status |
+|----------|-----------|-------|--------|
+| **Order cancellation** | Customers or staff cannot cancel an order once placed. Must be restricted to `pending` status only (irreversible once kitchen starts preparing). On cancel: restore stock, mark order as `cancelled` (new status). | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/cancel` endpoint, new `cancelled` status in DB CHECK constraint | **IMPLEMENTED** — see §7.6 for edit_token ownership model |
+| **Order modification** | No way to add/remove items or change options after placement. Must be restricted to `pending` status before kitchen work begins. On modify: recalculate total, re-validate stock. | `orders/routes.js` + `orders/service.js` — new `PATCH /api/orders/:id/items` endpoint | **IMPLEMENTED** — see §7.6 for edit_token ownership model |
+| **Payment integration** | No payment processing exists. The system assumes payment is handled externally (POS handshake), but there is no hook, no payment status tracking, and no way to mark an order as paid. At minimum: add a `payment_status` field (`unpaid`, `paid`, `refunded`) and a webhook endpoint for POS notification. | `orders/service.js` — new `payment_status` column on `orders` table, `POST /api/orders/webhook/payment` endpoint | **PENDING** |
 
 ### P1 — Business value (revenue / retention)
 

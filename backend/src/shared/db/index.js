@@ -69,9 +69,10 @@ export async function initDatabase() {
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       order_number INTEGER NOT NULL,
       channel VARCHAR(20) NOT NULL CHECK (channel IN ('web', 'counter')),
-      status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'picked_up')),
+      status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'picked_up', 'cancelled')),
       customer_name VARCHAR(100),
       total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      edit_token VARCHAR(64),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       picked_up_at TIMESTAMP
